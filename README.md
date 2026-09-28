@@ -1,6 +1,6 @@
-# genshin.cat 🐾
+# genshin.cat 
 
-A cozy Genshin Impact companion website made for my girlfriend 💕
+uhm just shit i made for my gf
 
 ## What's Inside
 - **Roster & Weapons:** Browse all characters and weapons in alphabetical order with clean element and region info.
