@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>genshin.cat</title>
+  <meta name="description" content="genshin.cat — Track your Genshin Impact roster, assign weapons, analyze team synergy, and explore the interactive world map.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4953c'><ellipse cx='12' cy='15' rx='5' ry='4'/><ellipse cx='6.5' cy='9.5' rx='2.2' ry='3'/><ellipse cx='10' cy='6.5' rx='2' ry='2.8'/><ellipse cx='14' cy='6.5' rx='2' ry='2.8'/><ellipse cx='17.5' cy='9.5' rx='2.2' ry='3'/></svg>">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Main Header (Tight spacing, clean design) -->
+    <header class="site-navbar">
+      <div class="navbar-left">
+        <a href="#" class="brand-group">
+          <svg class="brand-paw-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <ellipse cx="12" cy="15" rx="5" ry="4"/>
+            <ellipse cx="6.5" cy="9.5" rx="2.2" ry="3"/>
+            <ellipse cx="10" cy="6.5" rx="2" ry="2.8"/>
+            <ellipse cx="14" cy="6.5" rx="2" ry="2.8"/>
+            <ellipse cx="17.5" cy="9.5" rx="2.2" ry="3"/>
+          </svg>
+          <span class="brand-title">genshin<span>.cat</span></span>
+        </a>
+
+        <!-- Top Navigation View Tabs -->
+        <nav class="top-nav-tabs">
+          <button class="nav-tab-btn active" data-view-target="viewCharacters">
+            Roster
+          </button>
+          <button class="nav-tab-btn" data-view-target="viewTierList">
+            Meta Tier List
+          </button>
+          <button class="nav-tab-btn" data-view-target="viewTeamComposer">
+            Team Composer
+          </button>
+          <button class="nav-tab-btn" data-view-target="viewWorldMap">
+            Interactive Map
+          </button>
+        </nav>
+      </div>
+
+      <div class="navbar-actions">
+        <button class="nav-pill-badge" id="openResinPlannerBtn" title="Resin regeneration & runs planner">
+          <i data-lucide="zap" class="icon-xs"></i>
+          <span id="navResinBadge">160/200</span>
+        </button>
+        <button class="nav-pill-badge" id="openWeeklyBossBtn" title="Weekly boss tracker & resets">
+          <i data-lucide="swords" class="icon-xs"></i>
+          <span id="navWeeklyBossBadge">0/3</span>
+        </button>
+        <div class="nav-tools-menu-wrap">
+          <button class="btn-inventory-nav" id="navToolsToggleBtn" title="Additional utilities">
+            <i data-lucide="more-horizontal" class="icon-sm"></i>
+            <span>Tools</span>
+          </button>
+          <div class="nav-tools-dropdown" id="navToolsDropdown" style="display: none;">
+            <button class="nav-dropdown-item" id="openRosterInventoryBtn">
+              <i data-lucide="package" class="icon-sm"></i>
+              <span>Inventory & Missing</span>
+            </button>
+            <button class="nav-dropdown-item" id="openDomainsBtn">
+              <i data-lucide="calendar" class="icon-sm"></i>
+              <span>Domain Calendar</span>
+            </button>
+            <button class="nav-dropdown-item" id="openBackupModalBtn">
+              <i data-lucide="cloud-download" class="icon-sm"></i>
+              <span>Sync & Backup</span>
+            </button>
+            <div class="nav-dropdown-divider" style="height: 1px; background: var(--border-subtle); margin: 4px 0;"></div>
+            <button class="nav-dropdown-item text-danger" id="resetTrackedBtn" style="color: #f87171;">
+              <i data-lucide="trash-2" class="icon-sm"></i>
+              <span>Reset Tracked Goals</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- VIEW 1: CHARACTER & WEAPON TRACKER & BUILDS -->
+    <section class="app-view active" id="viewCharacters">
+      <!-- Roster Summary Strip -->
+      <div class="summary-strip" id="summaryStrip" style="display: none;">
+        <div class="summary-content" id="summaryContent"></div>
+      </div>
+
+      <!-- Sticky Control Toolbar -->
+      <div class="control-toolbar">
+        <div class="toolbar-row">
+          <div class="entity-toggle-group">
+            <button class="entity-toggle-btn active" id="btnEntityCharacters" data-entity="characters">Characters</button>
+            <button class="entity-toggle-btn" id="btnEntityWeapons" data-entity="weapons">Weapons</button>
+          </div>
+
+          <div class="search-wrap">
+            <i data-lucide="search" class="icon-sm search-icon-pos"></i>
+            <input type="text" id="searchInput" class="search-field" placeholder="Search character, weapon, or material..." autocomplete="off">
+            <span class="shortcut-badge">/</span>
+          </div>
+
+          <div class="segmented-control">
+            <button class="segment-item active" data-view="all" id="btnViewAll">All (<span id="allCountLabel">0</span>)</button>
+            <button class="segment-item" data-view="tracked" id="btnViewTracked">My Roster (<span id="trackedCountLabel">0</span>)</button>
+          </div>
+
+          <select id="sortSelect" class="custom-select">
+            <option value="name-asc" selected>Sort: Name (A → Z)</option>
+            <option value="rarity-desc">Sort: Rarity (5★ → 4★)</option>
+            <option value="element">Sort: Element / Type</option>
+          </select>
+        </div>
+
+        <div class="filter-controls-row">
+          <div class="elem-filter-strip" id="elementFilterBar">
+            <button class="elem-filter-btn active" data-elem="All">All Elements</button>
+            <button class="elem-filter-btn" data-elem="Pyro">Pyro</button>
+            <button class="elem-filter-btn" data-elem="Hydro">Hydro</button>
+            <button class="elem-filter-btn" data-elem="Anemo">Anemo</button>
+            <button class="elem-filter-btn" data-elem="Electro">Electro</button>
+            <button class="elem-filter-btn" data-elem="Dendro">Dendro</button>
+            <button class="elem-filter-btn" data-elem="Cryo">Cryo</button>
+            <button class="elem-filter-btn" data-elem="Geo">Geo</button>
+          </div>
+
+          <div class="secondary-filter-strip" id="secondaryFilterStrip">
+            <!-- Weapon Type Filter -->
+            <select id="filterWeapon" class="filter-select" aria-label="Filter by Weapon Type">
+              <option value="All">All Weapons</option>
+              <option value="Sword">Sword</option>
+              <option value="Claymore">Claymore</option>
+              <option value="Polearm">Polearm</option>
+              <option value="Bow">Bow</option>
+              <option value="Catalyst">Catalyst</option>
+            </select>
+
+            <!-- Rarity Filter -->
+            <select id="filterRarity" class="filter-select" aria-label="Filter by Rarity">
+              <option value="All">All Rarities</option>
+              <option value="5">5★ Legendary</option>
+              <option value="4">4★ Epic</option>
+            </select>
+
+            <!-- Region Filter -->
+            <select id="filterRegion" class="filter-select" aria-label="Filter by Region">
+              <option value="All">All Regions</option>
+              <option value="Mondstadt">Mondstadt</option>
+              <option value="Liyue">Liyue</option>
+              <option value="Inazuma">Inazuma</option>
+              <option value="Sumeru">Sumeru</option>
+              <option value="Fontaine">Fontaine</option>
+              <option value="Natlan">Natlan</option>
+              <option value="Snezhnaya">Snezhnaya</option>
+              <option value="Teyvat">Other / Special</option>
+            </select>
+
+            <button id="resetFiltersBtn" class="filter-reset-btn" title="Reset all active filters" style="display: none;">
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Today Strip Above Grid -->
+      <div class="sticky-today-strip" id="stickyTodayStrip" style="display: none;">
+        <div class="today-strip-bar">
+          <div class="today-strip-title-row" id="todayStripToggle" role="button" tabindex="0">
+            <div class="today-strip-left">
+              <i data-lucide="calendar" class="icon-xs" style="color: var(--accent-gold);"></i>
+              <span class="today-strip-label">Today's Materials</span>
+              <span class="today-day-badge" id="todayServerDayLabel">Today</span>
+              <span class="today-count-badge" id="todayDomainCountBadge">0 available</span>
+            </div>
+            <i data-lucide="chevron-down" class="icon-xs today-toggle-icon" id="todayToggleIcon"></i>
+          </div>
+          <div class="today-domains-flow" id="todayDomainsFlow" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- Character Grid (Looser spacing) -->
+      <main>
+        <div class="character-grid" id="characterGrid"></div>
+        <div class="pagination-controls" id="paginationControls" style="display: none; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; padding-bottom: 20px;">
+          <button class="btn-secondary" id="btnPagePrev" disabled>Previous</button>
+          <span id="pageIndicator" style="font-size: 14px; font-weight: 600;">Page 1 of 1</span>
+          <button class="btn-secondary" id="btnPageNext" disabled>Next</button>
+        </div>
+      </main>
+    </section>
+
+    <!-- VIEW 2: MULTI-SOURCE META TIER LIST -->
+    <section class="app-view" id="viewTierList">
+      <div class="tier-list-header-box">
+        <div class="tier-header-info">
+          <div class="tier-header-title-row">
+            <i data-lucide="flame" class="icon-md" style="color: #fb923c;"></i>
+            <h2 class="tier-main-title">Meta Tier List</h2>
+            <span class="tier-patch-badge" id="tierPatchBadge">Patch 5.0</span>
+          </div>
+          <p class="tier-sub-desc">
+            Current patch rankings for Spiral Abyss and endgame combat.
+          </p>
+        </div>
+
+        <!-- Role Filter Segment -->
+        <div class="tier-filters-row">
+          <div class="tier-role-filters" id="tierRoleFilters">
+            <button class="role-filter-btn active" data-role="All">All</button>
+            <button class="role-filter-btn" data-role="Main DPS">Main DPS</button>
+            <button class="role-filter-btn" data-role="Sub-DPS">Sub-DPS</button>
+            <button class="role-filter-btn" data-role="Support">Support</button>
+            <button class="role-filter-btn" data-role="Sustain">Sustain</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier Rows Container -->
+      <div class="tier-sections-wrapper" id="tierSectionsWrapper"></div>
+    </section>
+
+    <!-- VIEW 3: INTERACTIVE TEAM COMPOSER -->
+    <section class="app-view" id="viewTeamComposer">
+      <div class="composer-header-box">
+        <div>
+          <h2 style="font-size: 20px; font-weight: 700; color: #fff;">Team Composer</h2>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+            Select 4 characters to check elemental resonances, reactions, and team synergy.
+          </p>
+        </div>
+
+        <!-- Quick Meta Preset Buttons -->
+        <div class="composer-preset-row">
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Presets:</span>
+          <div class="preset-team-chips" id="presetTeamChips"></div>
+          <button class="preset-team-chip-btn clear-team-btn" id="btnClearTeam" title="Clear all 4 slots">
+            <i data-lucide="trash-2" class="icon-xs"></i>
+            <span>Clear Team</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4-Slot Character Dock -->
+      <div class="team-slots-grid" id="teamSlotsGrid">
+        <!-- Rendered by app.js: 4 character slots -->
+      </div>
+
+      <!-- Synergy & Resonance Dashboard -->
+      <div class="team-analysis-dashboard">
+        <!-- Left: Resonances & Reactions -->
+        <div class="analysis-column">
+          <div class="clean-section-card">
+            <div class="section-card-title">
+              <i data-lucide="flame" class="icon-sm"></i>
+              <span>Elemental Resonances</span>
+            </div>
+            <div class="resonance-list" id="resonanceListOutput"></div>
+          </div>
+
+          <div class="clean-section-card" style="margin-top: 14px;">
+            <div class="section-card-title">
+              <i data-lucide="zap" class="icon-sm"></i>
+              <span>Elemental Reactions</span>
+            </div>
+            <div class="reaction-badge-grid" id="reactionBadgeGrid"></div>
+          </div>
+        </div>
+
+        <!-- Right: Team Synergy Assessment -->
+        <div class="analysis-column">
+          <div class="clean-section-card">
+            <div class="section-card-title">
+              <i data-lucide="activity" class="icon-sm"></i>
+              <span>Team Synergy</span>
+            </div>
+            <div id="teamSynergyReport"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: TEYVAT INTERACTIVE WORLD MAP -->
+    <section class="app-view" id="viewWorldMap">
+      <div class="map-view-header">
+        <div class="map-view-title-row">
+          <i data-lucide="map" class="icon-sm" style="color: var(--accent-gold);"></i>
+          <h2 class="map-title-text">Interactive Map</h2>
+        </div>
+        <div class="map-actions-row">
+          <a href="https://act.hoyolab.com/ys/app/interactive-map/index.html?lang=en-us" target="_blank" rel="noopener noreferrer" class="btn-secondary map-external-link-btn">
+            <span>Open Fullscreen in New Tab</span>
+            <i data-lucide="external-link" class="icon-xs"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="map-frame-wrapper">
+        <iframe
+          id="teyvatMapIframe"
+          data-src="https://act.hoyolab.com/ys/app/interactive-map/index.html?lang=en-us"
+          src="https://act.hoyolab.com/ys/app/interactive-map/index.html?lang=en-us"
+          title="Teyvat Interactive Map"
+          loading="lazy"
+          allow="fullscreen; geolocation"
+          referrerpolicy="no-referrer"
+          class="teyvat-map-iframe">
+        </iframe>
+      </div>
+    </section>
+  </div>
+
+  <!-- Right-Side Character Detail Drawer -->
+  <div class="drawer-overlay" id="charDrawerOverlay"></div>
+  <aside class="right-detail-drawer" id="charDetailDrawer" role="dialog" aria-modal="true" aria-label="Character Goals and Materials">
+    <div class="drawer-header">
+      <div class="drawer-header-info">
+        <div class="drawer-avatar-thumb">
+          <img src="" alt="" id="heroPortraitImg" width="48" height="48">
+        </div>
+        <div>
+          <div class="drawer-name-row">
+            <h2 class="drawer-char-name" id="heroCharName">Character</h2>
+            <span class="drawer-rarity-badge" id="heroRarityBadge">5★</span>
+          </div>
+          <div class="drawer-meta-badges" id="heroMetaBadges"></div>
+        </div>
+      </div>
+      <button class="btn-icon-close" id="charDrawerCloseBtn" aria-label="Close drawer">
+        <i data-lucide="x" class="icon-sm"></i>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Quick Action Buttons -->
+      <div class="drawer-action-strip">
+        <button class="hero-track-action-btn" id="heroTrackToggleBtn">
+          <i data-lucide="star" class="icon-sm"></i>
+          <span>Track in My Roster</span>
+        </button>
+        <button class="hero-composer-add-btn" id="heroAddToComposerBtn">
+          <span>+ Team</span>
+        </button>
+      </div>
+
+      <!-- Character Equipped Weapon Widget -->
+      <div class="drawer-equipped-weapon-widget" id="drawerEquippedWeaponWidget" style="display: none;">
+        <div class="drawer-widget-header">
+          <div class="drawer-widget-title">
+            <i data-lucide="sword" class="icon-xs" style="color: var(--accent-gold);"></i>
+            <span>Equipped Weapon</span>
+          </div>
+          <button class="btn-text" id="btnDrawerEquipWeapon" style="font-size: 11px; color: var(--accent-gold); font-weight: 600; cursor: pointer;">
+            Change Weapon
+          </button>
+        </div>
+        <div class="drawer-equipped-weapon-body" id="drawerEquippedWeaponBody"></div>
+      </div>
+
+      <!-- Navigation Tabs in Drawer -->
+      <nav class="drawer-tabs-nav">
+        <button class="tab-nav-btn active" data-tab="tabPlanner">Goals & Materials</button>
+        <button class="tab-nav-btn" data-tab="tabBuilds">Build Guide</button>
+        <button class="tab-nav-btn" data-tab="tabFarming">Farming Days</button>
+      </nav>
+
+      <!-- TAB 1: GOALS & MATERIALS PLANNER -->
+      <div class="tab-content-panel active" id="tabPlanner">
+        <!-- 1. Level Goal -->
+        <div class="goal-section-card">
+          <div class="goal-section-header">
+            <span class="goal-title" id="drawerLevelGoalTitle">Level Goal</span>
+            <div class="preset-chip-row">
+              <button class="preset-chip-btn" data-start="1" data-target="90">1→90</button>
+              <button class="preset-chip-btn" data-start="1" data-target="80">1→80</button>
+              <button class="preset-chip-btn" data-start="70" data-target="80">70→80</button>
+              <button class="preset-chip-btn" data-start="80" data-target="90">80→90</button>
+            </div>
+          </div>
+
+          <div class="slider-dual-grid">
+            <div class="slider-col">
+              <div class="slider-label-meta">
+                <span>Current Level</span>
+                <strong id="sliderCurrentLabel">Lv. 1</strong>
+              </div>
+              <input type="range" min="1" max="90" value="1" id="sliderCurrent" class="input-slider">
+            </div>
+
+            <div class="slider-col">
+              <div class="slider-label-meta">
+                <span>Target Level</span>
+                <strong id="sliderTargetLabel">Lv. 90</strong>
+              </div>
+              <input type="range" min="1" max="90" value="90" id="sliderTarget" class="input-slider">
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Three Talent Levels Goals -->
+        <div class="goal-section-card" id="drawerTalentsSection">
+          <div class="goal-section-header">
+            <span class="goal-title">Talent Level Goals (3 Talents)</span>
+            <div class="preset-chip-row">
+              <button class="preset-talent-chip" data-t1="10" data-t2="10" data-t3="10">10 / 10 / 10</button>
+              <button class="preset-talent-chip" data-t1="9" data-t2="9" data-t3="9">9 / 9 / 9</button>
+              <button class="preset-talent-chip" data-t1="8" data-t2="8" data-t3="8">8 / 8 / 8</button>
+              <button class="preset-talent-chip" data-t1="1" data-t2="9" data-t3="9">1 / 9 / 9</button>
+            </div>
+          </div>
+
+          <div class="talent-sliders-stack">
+            <!-- Talent 1: Normal Attack -->
+            <div class="talent-goal-row">
+              <span class="talent-name-label">Normal Attack</span>
+              <div class="talent-levels-pick">
+                <span class="t-sublabel">Lv.</span>
+                <input type="number" min="1" max="10" value="1" id="talent1Current" class="talent-num-input">
+                <span class="t-arrow">→</span>
+                <span class="t-sublabel">Lv.</span>
+                <input type="number" min="1" max="10" value="10" id="talent1Target" class="talent-num-input">
+              </div>
+            </div>
+
+            <!-- Talent 2: Elemental Skill -->
+            <div class="talent-goal-row">
+              <span class="talent-name-label">Elemental Skill</span>
+              <div class="talent-levels-pick">
+                <span class="t-sublabel">Lv.</span>
+                <input type="number" min="1" max="10" value="1" id="talent2Current" class="talent-num-input">
+                <span class="t-arrow">→</span>
+                <span class="t-sublabel">Lv.</span>
+                <input type="number" min="1" max="10" value="10" id="talent2Target" class="talent-num-input">
+              </div>
+            </div>
+
+            <!-- Talent 3: Elemental Burst -->
+            <div class="talent-goal-row">
+              <span class="talent-name-label">Elemental Burst</span>
+              <div class="talent-levels-pick">
+                <span class="t-sublabel">Lv.</span>
+                <input type="number" min="1" max="10" value="1" id="talent3Current" class="talent-num-input">
+                <span class="t-arrow">→</span>
+                <span class="t-sublabel">Lv.</span>
+                <input type="number" min="1" max="10" value="10" id="talent3Target" class="talent-num-input">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Computed Materials & Inventory Input (Show What's Missing) -->
+        <div class="goal-section-card">
+          <div class="goal-section-header">
+            <span class="goal-title">Materials Required & Inventory</span>
+            <span class="inventory-hint-note">Enter your inventory to see what's missing</span>
+          </div>
+
+          <div class="materials-inventory-table" id="materialGridOutput">
+            <!-- Rendered by app.js: itemized materials, needed, have input, missing -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: BUILD GUIDE -->
+      <div class="tab-content-panel" id="tabBuilds">
+        <div class="build-guide-stack" id="buildGuideOutput"></div>
+      </div>
+
+      <!-- TAB 3: FARMING DAYS -->
+      <div class="tab-content-panel" id="tabFarming">
+        <div class="build-guide-stack" id="farmingScheduleOutput"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Overall Roster Inventory & Missing Modal -->
+  <div class="modal-overlay" id="rosterInventoryModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 720px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <span style="font-weight: 700; color: #fff;">Overall Roster Materials & Inventory</span>
+        </div>
+        <button class="btn-icon-close" id="inventoryModalCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 12px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <span style="font-size: 13px; color: var(--text-secondary);">
+          Aggregate material demands for all tracked characters in your roster.
+        </span>
+      </div>
+
+      <div style="padding: 16px; overflow-y: auto; max-height: 68vh;" id="rosterInventoryBody"></div>
+    </div>
+  </div>
+
+  <!-- Character Selector Modal for Team Composer -->
+  <div class="modal-overlay" id="charPickerModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 680px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <i data-lucide="user-plus" class="icon-sm" style="color: var(--accent-gold);"></i>
+          <span>Select Team Member</span>
+        </div>
+        <button class="btn-icon-close" id="charPickerCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 12px 18px; border-bottom: 1px solid var(--border-subtle);">
+        <input type="text" id="pickerSearchInput" class="search-field" placeholder="Filter character name or element..." autocomplete="off">
+      </div>
+
+      <div style="padding: 16px; overflow-y: auto; max-height: 60vh;">
+        <div class="character-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));" id="pickerCharacterGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weapon Selector / Equip Modal -->
+  <div class="modal-overlay" id="weaponPickerModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 680px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <i data-lucide="sword" class="icon-sm" style="color: var(--accent-gold);"></i>
+          <span id="weaponPickerTitle">Equip Weapon</span>
+        </div>
+        <button class="btn-icon-close" id="weaponPickerCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 10px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--bg-body);">
+        <div id="weaponPickerCharPreview" style="display: flex; align-items: center; gap: 8px;"></div>
+        <button class="btn-secondary text-danger" id="btnUnequipCurrentWeapon" style="font-size: 11px; padding: 4px 10px; display: none;">
+          <i data-lucide="slash" class="icon-xs"></i>
+          <span>Unequip Weapon</span>
+        </button>
+      </div>
+
+      <div style="padding: 10px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="weaponPickerSearchInput" class="search-field" style="flex: 1; min-width: 170px;" placeholder="Search weapon name, stat, or drop..." autocomplete="off">
+        <div class="segmented-control" id="weaponPickerRarityFilter">
+          <button class="segment-item active" data-rarity="All">All</button>
+          <button class="segment-item" data-rarity="5">5★</button>
+          <button class="segment-item" data-rarity="4">4★</button>
+          <button class="segment-item" data-rarity="3">3★</button>
+        </div>
+      </div>
+
+      <div style="padding: 16px; overflow-y: auto; max-height: 58vh;">
+        <div class="character-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));" id="weaponPickerGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Domains Modal -->
+  <div class="modal-overlay" id="domainScheduleModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 760px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <i data-lucide="calendar" class="icon-sm" style="color: var(--accent-gold);"></i>
+          <span>Teyvat Daily Farming Domains</span>
+        </div>
+        <button class="btn-icon-close" id="domainModalCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 12px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <span style="font-size: 12px; color: var(--text-secondary);">Select Domain Day:</span>
+        <select id="scheduleDayDropdown" class="custom-select"></select>
+      </div>
+
+      <div style="padding: 18px; overflow-y: auto; max-height: 68vh;" id="domainScheduleModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Resin Planner Modal (1 Resin / 8 Min, Cap 200) -->
+  <div class="modal-overlay" id="resinPlannerModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 620px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <i data-lucide="zap" class="icon-sm" style="color: var(--accent-ui);"></i>
+          <span>Original Resin Planner (Cap: 200, 1 / 8 min)</span>
+        </div>
+        <button class="btn-icon-close" id="resinModalCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--bg-body); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 600; color: #fff;">Current Resin:</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="number" min="0" max="200" id="resinNumberInput" class="talent-num-input" style="width: 58px;" value="160">
+              <span style="font-size: 13px; color: var(--text-muted); font-weight: 700;">/ 200</span>
+            </div>
+          </div>
+          <input type="range" min="0" max="200" value="160" id="resinRangeInput" class="input-slider">
+          <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px;">
+            <span style="color: var(--text-muted);">Time to Cap:</span>
+            <strong id="resinCapTimeDisplay" style="color: var(--accent-ui);">Full in 5h 20m</strong>
+          </div>
+        </div>
+
+        <div class="clean-section-card">
+          <div class="section-card-title">
+            <i data-lucide="target" class="icon-sm"></i>
+            <span>Runs Needed to Complete Tracked Goals</span>
+          </div>
+          <div class="resin-runs-grid" id="resinRunsBreakdown">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly Boss Tracker Modal (Resets Monday 4:00 AM) -->
+  <div class="modal-overlay" id="weeklyBossModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 660px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <i data-lucide="swords" class="icon-sm" style="color: var(--accent-ui);"></i>
+          <span>Weekly Trounce Bosses (Resets Monday 4:00 AM)</span>
+        </div>
+        <button class="btn-icon-close" id="weeklyBossModalCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 12px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: var(--bg-body);">
+        <div>
+          <span style="font-size: 12px; color: var(--text-secondary);">Discounted Claims (30 Resin):</span>
+          <strong id="weeklyDiscountCount" style="color: var(--accent-ui); margin-left: 6px;">0 / 3 Claimed</strong>
+        </div>
+        <div id="weeklyResetCountdown" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+          Resets in -- (Monday 4:00 AM)
+        </div>
+      </div>
+
+      <div style="padding: 16px; overflow-y: auto; max-height: 60vh;">
+        <div class="weekly-boss-list" id="weeklyBossList">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enka UID Import & JSON Backup Modal -->
+  <div class="modal-overlay" id="backupModal" role="dialog" aria-modal="true">
+    <div class="detail-window" style="max-width: 580px;">
+      <div class="window-header">
+        <div class="window-header-title">
+          <i data-lucide="cloud-download" class="icon-sm" style="color: var(--accent-ui);"></i>
+          <span>Showcase Import & Data Backup</span>
+        </div>
+        <button class="btn-icon-close" id="backupModalCloseBtn" aria-label="Close">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <div style="padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Enka Import -->
+        <div class="clean-section-card">
+          <div class="section-card-title">
+            <i data-lucide="user-check" class="icon-sm"></i>
+            <span>Import from In-Game Showcase</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+            Load character levels and talents from your public showcase via your UID.
+          </p>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="enkaUidInput" class="search-field" placeholder="Enter in-game UID (e.g. 800000000)" maxlength="10">
+            <button class="btn-primary" id="btnEnkaImport" style="white-space: nowrap; padding: 7px 16px; cursor: pointer;">
+              <span>Import</span>
+            </button>
+          </div>
+          <div id="enkaStatusMessage" style="font-size: 12px; margin-top: 8px; min-height: 18px;"></div>
+        </div>
+
+        <!-- JSON Backup / Restore -->
+        <div class="clean-section-card">
+          <div class="section-card-title">
+            <i data-lucide="hard-drive" class="icon-sm"></i>
+            <span>Backup & Restore (JSON)</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+            Export or restore your roster, weapon assignments, and inventory data as a JSON file.
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="hero-track-action-btn" id="btnExportBackup" style="cursor: pointer;">
+              <i data-lucide="download" class="icon-sm"></i>
+              <span>Export JSON Backup</span>
+            </button>
+            <label class="hero-track-action-btn" style="cursor: pointer;">
+              <i data-lucide="upload" class="icon-sm"></i>
+              <span>Import JSON Backup</span>
+              <input type="file" id="backupFileInput" accept=".json" style="display: none;">
+            </label>
+          </div>
+          <div id="backupStatusMessage" style="font-size: 12px; margin-top: 8px; min-height: 18px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

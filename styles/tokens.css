@@ -1,0 +1,72 @@
+:root {
+  /* ==========================================================================
+     Authentic Teyvat Elemental Colors (Subtle & Refined)
+     ========================================================================== */
+  --elem-pyro: #ef5350;
+  --elem-pyro-bg: rgba(239, 83, 80, 0.1);
+  --elem-pyro-border: rgba(239, 83, 80, 0.3);
+
+  --elem-hydro: #42a5f5;
+  --elem-hydro-bg: rgba(66, 165, 245, 0.1);
+  --elem-hydro-border: rgba(66, 165, 245, 0.3);
+
+  --elem-anemo: #26a69a;
+  --elem-anemo-bg: rgba(38, 166, 154, 0.1);
+  --elem-anemo-border: rgba(38, 166, 154, 0.3);
+
+  --elem-electro: #ab47bc;
+  --elem-electro-bg: rgba(171, 71, 188, 0.1);
+  --elem-electro-border: rgba(171, 71, 188, 0.3);
+
+  --elem-dendro: #9ccc65;
+  --elem-dendro-bg: rgba(156, 204, 101, 0.1);
+  --elem-dendro-border: rgba(156, 204, 101, 0.3);
+
+  --elem-cryo: #80deea;
+  --elem-cryo-bg: rgba(128, 222, 234, 0.1);
+  --elem-cryo-border: rgba(128, 222, 234, 0.3);
+
+  --elem-geo: #ffa726;
+  --elem-geo-bg: rgba(255, 167, 38, 0.1);
+  --elem-geo-border: rgba(255, 167, 38, 0.3);
+
+  /* Rarity Accents (NO GAUDY YELLOW BACKGROUNDS) */
+  --rarity-5: #e09f3e;
+  --rarity-5-border: rgba(224, 159, 62, 0.3);
+  --rarity-5-badge: rgba(224, 159, 62, 0.12);
+
+  --rarity-4: #9d65c9;
+  --rarity-4-border: rgba(157, 101, 201, 0.3);
+  --rarity-4-badge: rgba(157, 101, 201, 0.12);
+
+  /* Clean Matte Neutral Surfaces */
+  --bg-body: #0b0e14;
+  --bg-surface: #121620;
+  --bg-surface-hover: #181d2a;
+  --bg-surface-elevated: #1d2332;
+  --bg-portrait: #0f121b;
+  --bg-card-footer: #10141e;
+  --bg-overlay: rgba(6, 8, 12, 0.85);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --border-active: rgba(212, 149, 60, 0.5);
+  --accent-gold: #d4953c;
+  --accent-ui: #d4953c;
+
+  --text-main: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --transition: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}

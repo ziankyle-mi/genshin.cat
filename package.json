@@ -1,0 +1,22 @@
+{
+  "name": "genshin-cat",
+  "version": "1.0.0",
+  "description": "Human-crafted Genshin Impact companion with live parsed meta tier lists, character ascension tracker, and team composer.",
+  "type": "module",
+  "scripts": {
+    "start": "python -m http.server 5173",
+    "fetch-characters": "node scripts/fetch-characters.js",
+    "sync-meta": "node scripts/sync_meta.js"
+  },
+  "keywords": [
+    "genshin",
+    "tier-list",
+    "team-composer",
+    "ascension-tracker"
+  ],
+  "author": "Antigravity Pair Programmer",
+  "license": "MIT",
+  "dependencies": {
+    "genshin-db": "^5.2.14"
+  }
+}
