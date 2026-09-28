@@ -1,0 +1,43 @@
+name: Daily Tier List Sync
+
+on:
+  schedule:
+    # Runs every day at 02:00 UTC (10:00 AM Manila time)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync-meta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run tier list sync
+        run: node scripts/sync_meta.js
+
+      - name: Check if data changed
+        id: check_changes
+        run: |
+          if git diff --quiet data/meta_tiers.js; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push updated tier list
+        if: steps.check_changes.outputs.changed == "true"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/meta_tiers.js
+          git commit -m "chore: daily tier list sync $(date -u '+%Y-%m-%d')"
+          git push

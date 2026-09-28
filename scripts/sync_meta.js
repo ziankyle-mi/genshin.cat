@@ -1,278 +1,323 @@
 import fs from 'fs';
 import path from 'path';
 
-/**
- * Multi-Source Meta Tier List & Team Synergy Parser
- * Sources parsed:
- * 1. Genshin.gg (https://genshin.gg/tier-list/ & https://genshin.gg/teams/)
- * 2. Game8 (https://game8.co/games/Genshin-Impact/archives/297465)
- * 3. Community Theorycraft Consensus (KeqingMains / Akasha meta standards)
- */
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
+};
 
-async function fetchGenshinGGTiers() {
-  try {
-    const res = await fetch('https://genshin.gg/tier-list/', {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    const html = await res.text();
+// Numeric rank per tier label — higher = better
+const TIER_RANK = {
+  'SSS+': 10, 'SSS': 9, 'SS+': 8, 'SS': 7,
+  'S+': 6, 'S': 5, 'A+': 4, 'A': 3,
+  'B+': 2, 'B': 1, 'C': 0, 'D': -1,
+};
 
-    const regex = /tier="([^"]+)"[^>]*>[\s\S]*?<img alt="([^"]+)"[\s\S]*?<div class="character-type">([^<]+)<\/div>/g;
-    const tierMap = {};
-    
-    // Also parse with character name and tier
-    const simpleRegex = /tier="([^"]+)"[^>]*>[\s\S]*?<img alt="([^"]+)"/g;
-    let match;
-    while ((match = simpleRegex.exec(html)) !== null) {
-      const tier = match[1].trim();
-      const name = match[2].trim();
-      if (!tierMap[name]) {
-        tierMap[name] = tier;
-      }
-    }
-    return tierMap;
-  } catch (e) {
-    console.error('Error fetching genshin.gg:', e.message);
-    return {};
-  }
+function normalizeTier(raw) {
+  if (!raw) return null;
+  const t = raw.toUpperCase().trim();
+  if (t.includes('SSS') || t === 'APEX' || t === 'BROKEN') return 'SSS';
+  if (t === 'SS') return 'SS';
+  if (t === 'S') return 'S';
+  if (t === 'A') return 'A';
+  if (t === 'B') return 'B';
+  if (t === 'C') return 'C';
+  if (t === 'D') return 'D';
+  return null;
 }
 
-async function fetchGenshinGGTeams() {
-  try {
-    const res = await fetch('https://genshin.gg/teams/', {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    const html = await res.text();
-
-    const items = [];
-    const itemRegex = /<div class="teams-item">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/g;
-    let match;
-    while ((match = itemRegex.exec(html)) !== null) {
-      const block = match[1];
-      const nameMatch = block.match(/<div class="team-name">([^<]+)<\/div>/);
-      const chars = [...block.matchAll(/<h2 class="character-name">([^<]+)<\/h2>/g)].map(m => m[1].trim());
-      if (nameMatch && chars.length === 4) {
-        items.push({
-          name: nameMatch[1].trim(),
-          members: chars
-        });
-      }
-    }
-    return items;
-  } catch (e) {
-    console.error('Error fetching teams from genshin.gg:', e.message);
-    return [];
-  }
+function normalizeName(raw) {
+  return raw
+    .toLowerCase()
+    .replace(/[''`]/g, '')
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, '-')
+    .trim();
 }
 
-// Master Consensus Meta Table (Aggregated from Genshin.gg, Game8, and KQM Spiral Abyss data)
-const MASTER_META_ROSTER = [
-  {
-    id: "neuvillette",
-    name: "Neuvillette",
-    element: "Hydro",
-    role: "Main DPS",
-    subRoles: ["Hypercarry"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Top 1" },
-    synergyWith: ["Furina", "Kaedehara Kazuha", "Zhongli", "Baizhu", "Chiori", "Fischl"],
-    overview: "Dominates AoE and single-target with unmatched raw Hydro HP-scaling beam damage and self-sustain."
-  },
-  {
-    id: "furina",
-    name: "Furina",
-    element: "Hydro",
-    role: "Support",
-    subRoles: ["Sub-DPS", "Buffer"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Universal SSS" },
-    synergyWith: ["Neuvillette", "Hu Tao", "Kaedehara Kazuha", "Baizhu", "Jean", "Bennett", "Navia"],
-    overview: "Premier universal buffer granting up to +75% all-team DMG bonus alongside top-tier off-field Hydro DPS."
-  },
-  {
-    id: "arlecchino",
-    name: "Arlecchino",
-    element: "Pyro",
-    role: "Main DPS",
-    subRoles: ["Hypercarry", "Vaporize / Overload"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Apex Pyro" },
-    synergyWith: ["Bennett", "Kaedehara Kazuha", "Yelan", "Zhongli", "Chevreuse", "Fischl"],
-    overview: "Unstoppable front-loaded Bond of Life Pyro DPS with self-healing on Burst and immense normal attack scalings."
-  },
-  {
-    id: "kazuha",
-    name: "Kaedehara Kazuha",
-    element: "Anemo",
-    role: "Support",
-    subRoles: ["Buffer", "Crowd Control"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Essential" },
-    synergyWith: ["Raiden Shogun", "Neuvillette", "Furina", "Hu Tao", "Bennett", "Kamisato Ayaka"],
-    overview: "Provides 40% elemental RES shred through Viridescent Venerer, massive team Elemental DMG bonus, and suction CC."
-  },
-  {
-    id: "nahida",
-    name: "Nahida",
-    element: "Dendro",
-    role: "Support",
-    subRoles: ["Sub-DPS", "Buffer", "Dendro Enabler"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Dendro Archon" },
-    synergyWith: ["Alhaitham", "Raiden Shogun", "Yelan", "Xingqiu", "Nilou", "Kuki Shinobu"],
-    overview: "The absolute pillar of Dendro reactions. 100% off-field Dendro application and up to 250 team Elemental Mastery."
-  },
-  {
-    id: "zhongli",
-    name: "Zhongli",
-    element: "Geo",
-    role: "Sustain",
-    subRoles: ["Shielder", "Universal Shred"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Apex Shielder" },
-    synergyWith: ["Hu Tao", "Neuvillette", "Navia", "Arlecchino", "Ganyu", "Yoimiya"],
-    overview: "Unbreakable 100% uptime Jade Shield with universal 20% all-elemental & physical resistance shred."
-  },
-  {
-    id: "bennett",
-    name: "Bennett",
-    element: "Pyro",
-    role: "Support",
-    subRoles: ["Buffer", "Healer"],
-    tier: "SSS+",
-    scores: { genshinGG: "SS", game8: "SS+", kqm: "Unmatched" },
-    synergyWith: ["Xiangling", "Raiden Shogun", "Arlecchino", "Kaedehara Kazuha", "Navia"],
-    overview: "The undisputed '6-star' buffer: provides +1000+ Flat ATK to active characters inside Fantastic Voyage plus rapid healing."
-  },
-  {
-    id: "raiden",
-    name: "Raiden Shogun",
-    element: "Electro",
-    role: "Sub-DPS",
-    subRoles: ["Main DPS", "Battery"],
-    tier: "SS",
-    scores: { genshinGG: "S", game8: "SS", kqm: "Top Battery" },
-    synergyWith: ["Bennett", "Xiangling", "Xingqiu", "Yelan", "Kaedehara Kazuha", "Sara"],
-    overview: "Charges entire team Bursts while dishing out tremendous Musou Shinsetsu burst damage."
-  },
-  {
-    id: "yelan",
-    name: "Yelan",
-    element: "Hydro",
-    role: "Sub-DPS",
-    subRoles: ["Buffer"],
-    tier: "SS",
-    scores: { genshinGG: "SS", game8: "SS", kqm: "Elite Off-Field" },
-    synergyWith: ["Hu Tao", "Arlecchino", "Raiden Shogun", "Zhongli", "Furina", "Xingqiu"],
-    overview: "High personal off-field Hydro damage with ramp-up active character damage bonus up to 50%."
-  },
-  {
-    id: "hu-tao",
-    name: "Hu Tao",
-    element: "Pyro",
-    role: "Main DPS",
-    subRoles: ["Vaporize"],
-    tier: "SS",
-    scores: { genshinGG: "S", game8: "SS", kqm: "Tier 1 Vape" },
-    synergyWith: ["Xingqiu", "Yelan", "Zhongli", "Furina", "Kaedehara Kazuha"],
-    overview: "Deadliest single-target Vaporize charged-attack hypercarry when paired with Hydro off-fielders."
-  },
-  {
-    id: "navia",
-    name: "Navia",
-    element: "Geo",
-    role: "Main DPS",
-    subRoles: ["Burst DPS", "Crystallize"],
-    tier: "SS",
-    scores: { genshinGG: "S", game8: "SS", kqm: "Top Geo" },
-    synergyWith: ["Zhongli", "Bennett", "Furina", "Xiangling", "Chiori"],
-    overview: "Transforms Crystallize shards into devastating point-blank shotgun blasts hitting for hundreds of thousands of DMG."
-  },
-  {
-    id: "ayaka",
-    name: "Kamisato Ayaka",
-    element: "Cryo",
-    role: "Main DPS",
-    subRoles: ["Freeze Hypercarry"],
-    tier: "S",
-    scores: { genshinGG: "S", game8: "S", kqm: "Top Freeze" },
-    synergyWith: ["Furina", "Kaedehara Kazuha", "Shenhe", "Kokomi", "Diona"],
-    overview: "Devastating 20-tick Cryo whirlwind Burst that shreds frozen and stationary foes in seconds."
-  }
-];
+// ─── SOURCE 1: genshin.gg ─────────────────────────────────────────────────
 
-// Curated Top Meta Teams
-const META_TEAMS = [
-  {
-    id: "neuvillette-hyper",
-    name: "Neuvillette Fontainian Sovereign",
-    type: "Hypercarry / Hydro Resonance",
-    resonance: ["Hydro Resonance: Soothing Water (+25% Max HP)"],
-    reactions: ["Swirl (Resistance Shred -40%)", "Crystallize", "Hydro Reactions"],
-    characters: ["neuvillette", "furina", "kazuha", "zhongli"],
-    rating: "SSS+",
-    description: "The absolute ceiling of current Genshin meta. Furina boosts Neuvillette's HP and damage while Kazuha shreds RES and Zhongli provides invulnerability."
-  },
-  {
-    id: "raiden-national",
-    name: "Raiden National (Rational)",
-    type: "Overvape / Battery",
-    resonance: ["Pyro Resonance: Fervent Flames (+25% ATK)"],
-    reactions: ["Vaporize (2.0x/1.5x)", "Overloaded", "Electro-Charged"],
-    characters: ["raiden", "bennett", "hu-tao", "yelan"],
-    rating: "SS+",
-    description: "Classic unstoppable team engine. Non-stop Burst uptime, simultaneous Vaporize and Overloaded reactions, and high survivability."
-  },
-  {
-    id: "hu-tao-double-hydro",
-    name: "Hu Tao Double Hydro Funeral",
-    type: "Vaporize Hypercarry",
-    resonance: ["Hydro Resonance: Soothing Water (+25% Max HP)"],
-    reactions: ["Vaporize (1.5x Multiplier)"],
-    characters: ["hu-tao", "yelan", "furina", "zhongli"],
-    rating: "SSS",
-    description: "Hydro Resonance boosts Hu Tao and Furina's HP scalings, while double Hydro ensures 100% of Hu Tao's charged attacks vaporize."
-  },
-  {
-    id: "arlecchino-overload",
-    name: "Arlecchino Father Overload",
-    type: "Overload / Pyro Resonance",
-    resonance: ["Pyro Resonance: Fervent Flames (+25% ATK)"],
-    reactions: ["Overloaded (Chevreuse RES Shred -40%)"],
-    characters: ["arlecchino", "bennett", "raiden", "kazuha"],
-    rating: "SSS",
-    description: "Massive Pyro and Electro damage amplification with continuous stagger and rapid field clearing."
+async function fetchGenshinGG() {
+  console.log('  Fetching genshin.gg/tier-list ...');
+  const result = {};
+  try {
+    const res = await fetch('https://genshin.gg/tier-list/', { headers: HEADERS });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+
+    // data-tier="S" ... alt="CharacterName"
+    const re = /data-tier="([^"]+)"[^>]*>[\s\S]*?alt="([^"]+)"/g;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const tier = normalizeTier(m[1]);
+      const name = normalizeName(m[2].replace(/\s*-\s*Genshin Impact.*$/i, '').trim());
+      if (tier && name && !result[name]) result[name] = tier;
+    }
+
+    // Fallback: tier="S" pattern (older structure)
+    if (Object.keys(result).length < 5) {
+      const re2 = /\btier="([^"]+)"[^>]*>[\s\S]{0,400}?alt="([^"]+)"/g;
+      while ((m = re2.exec(html)) !== null) {
+        const tier = normalizeTier(m[1]);
+        const name = normalizeName(m[2]);
+        if (tier && name && !result[name]) result[name] = tier;
+      }
+    }
+
+    console.log(`    ✓ genshin.gg: ${Object.keys(result).length} characters`);
+  } catch (e) {
+    console.error(`    ✗ genshin.gg failed: ${e.message}`);
   }
-];
+  return result;
+}
+
+// ─── SOURCE 2: game8.co ───────────────────────────────────────────────────
+
+async function fetchGame8() {
+  console.log('  Fetching game8.co ...');
+  const result = {};
+  try {
+    const res = await fetch('https://game8.co/games/Genshin-Impact/archives/297465', { headers: HEADERS });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+
+    // Game8 uses h3 headings like "SS Tier" then character links below
+    const tierSections = html.split(/<h[23][^>]*>/i);
+    for (const section of tierSections) {
+      const tierMatch = section.match(/^(SSS\+?|SSS|SS\+?|S\+?|A\+?|B\+?|C|D)\s*Tier/i);
+      if (!tierMatch) continue;
+      const tier = normalizeTier(tierMatch[1]);
+      if (!tier) continue;
+
+      const nameRe = /alt="([^"]+?)(?:\s*[-|]\s*(?:Genshin[^"]*)?)?"/gi;
+      let nm;
+      while ((nm = nameRe.exec(section)) !== null) {
+        const name = normalizeName(nm[1]);
+        if (name.length > 1 && !result[name]) result[name] = tier;
+      }
+    }
+
+    console.log(`    ✓ game8.co: ${Object.keys(result).length} characters`);
+  } catch (e) {
+    console.error(`    ✗ game8.co failed: ${e.message}`);
+  }
+  return result;
+}
+
+// ─── SOURCE 3: prydwen.gg ─────────────────────────────────────────────────
+
+async function fetchPrydwen() {
+  console.log('  Fetching prydwen.gg ...');
+  const result = {};
+  try {
+    const res = await fetch('https://www.prydwen.gg/genshin-impact/tier-list', { headers: HEADERS });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+
+    // Prydwen embeds JSON data in Next.js __NEXT_DATA__ script tag
+    const jsonMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>(\{[\s\S]+?\})<\/script>/);
+    if (jsonMatch) {
+      try {
+        const data = JSON.parse(jsonMatch[1]);
+        const pageProps = data?.props?.pageProps;
+        const chars = pageProps?.tierListCharacters || pageProps?.characters || [];
+        for (const c of chars) {
+          const tier = normalizeTier(c.tier || c.rating);
+          if (!tier) continue;
+          if (c.slug) result[normalizeName(c.slug)] = tier;
+          if (c.name) result[normalizeName(c.name)] = tier;
+        }
+      } catch (_) { /* JSON parse failed */ }
+    }
+
+    // HTML fallback: tier sections with character alt texts
+    if (Object.keys(result).length < 5) {
+      const sectionRe = /class="[^"]*tier-([SABCD][+]?)[^"]*">([\s\S]*?)(?=class="[^"]*tier-[SABCD]|<\/section)/gi;
+      let tb;
+      while ((tb = sectionRe.exec(html)) !== null) {
+        const tier = normalizeTier(tb[1]);
+        if (!tier) continue;
+        const nameRe = /alt="([^"]+?)(?:\s*[-|][^"]+)?"/gi;
+        let nm;
+        while ((nm = nameRe.exec(tb[2])) !== null) {
+          const name = normalizeName(nm[1]);
+          if (name.length > 1 && !result[name]) result[name] = tier;
+        }
+      }
+    }
+
+    console.log(`    ✓ prydwen.gg: ${Object.keys(result).length} characters`);
+  } catch (e) {
+    console.error(`    ✗ prydwen.gg failed: ${e.message}`);
+  }
+  return result;
+}
+
+// ─── CONSENSUS MERGE ──────────────────────────────────────────────────────
+
+function mergeConsensus(gg, g8, prydwen) {
+  const allNames = new Set([...Object.keys(gg), ...Object.keys(g8), ...Object.keys(prydwen)]);
+  const consensus = {};
+
+  for (const name of allNames) {
+    const tiers = [gg[name], g8[name], prydwen[name]].filter(Boolean);
+    if (tiers.length === 0) continue;
+
+    const ranks = tiers.map(t => TIER_RANK[t] ?? 3);
+    const avg = ranks.reduce((a, b) => a + b, 0) / ranks.length;
+
+    let best = 'A';
+    let bestDiff = Infinity;
+    for (const [label, rank] of Object.entries(TIER_RANK)) {
+      const diff = Math.abs(rank - avg);
+      if (diff < bestDiff) { bestDiff = diff; best = label; }
+    }
+
+    consensus[name] = {
+      tier: best,
+      sources: {
+        genshinGG: gg[name] || null,
+        game8: g8[name] || null,
+        prydwen: prydwen[name] || null,
+      }
+    };
+  }
+
+  return consensus;
+}
+
+// ─── ROLE / ELEMENT LOOKUP ────────────────────────────────────────────────
+
+const KNOWN_ROLES = {
+  'neuvillette': { role: 'Main DPS', element: 'Hydro' },
+  'furina': { role: 'Support', element: 'Hydro' },
+  'arlecchino': { role: 'Main DPS', element: 'Pyro' },
+  'kaedehara-kazuha': { role: 'Support', element: 'Anemo' },
+  'nahida': { role: 'Support', element: 'Dendro' },
+  'zhongli': { role: 'Sustain', element: 'Geo' },
+  'bennett': { role: 'Support', element: 'Pyro' },
+  'raiden-shogun': { role: 'Sub-DPS', element: 'Electro' },
+  'yelan': { role: 'Sub-DPS', element: 'Hydro' },
+  'hu-tao': { role: 'Main DPS', element: 'Pyro' },
+  'navia': { role: 'Main DPS', element: 'Geo' },
+  'kamisato-ayaka': { role: 'Main DPS', element: 'Cryo' },
+  'xiangling': { role: 'Sub-DPS', element: 'Pyro' },
+  'xingqiu': { role: 'Sub-DPS', element: 'Hydro' },
+  'ganyu': { role: 'Main DPS', element: 'Cryo' },
+  'kokomi': { role: 'Sustain', element: 'Hydro' },
+  'shenhe': { role: 'Support', element: 'Cryo' },
+  'albedo': { role: 'Sub-DPS', element: 'Geo' },
+  'fischl': { role: 'Sub-DPS', element: 'Electro' },
+  'yoimiya': { role: 'Main DPS', element: 'Pyro' },
+  'tartaglia': { role: 'Main DPS', element: 'Hydro' },
+  'eula': { role: 'Main DPS', element: 'Cryo' },
+  'klee': { role: 'Main DPS', element: 'Pyro' },
+  'jean': { role: 'Sustain', element: 'Anemo' },
+  'venti': { role: 'Support', element: 'Anemo' },
+  'xiao': { role: 'Main DPS', element: 'Anemo' },
+  'alhaitham': { role: 'Main DPS', element: 'Dendro' },
+  'nilou': { role: 'Sub-DPS', element: 'Hydro' },
+  'kuki-shinobu': { role: 'Sustain', element: 'Electro' },
+  'cyno': { role: 'Main DPS', element: 'Electro' },
+  'wanderer': { role: 'Main DPS', element: 'Anemo' },
+  'baizhu': { role: 'Sustain', element: 'Dendro' },
+  'chiori': { role: 'Sub-DPS', element: 'Geo' },
+  'wriothesley': { role: 'Main DPS', element: 'Cryo' },
+  'lyney': { role: 'Main DPS', element: 'Pyro' },
+  'sigewinne': { role: 'Sustain', element: 'Hydro' },
+  'emilie': { role: 'Sub-DPS', element: 'Dendro' },
+  'chasca': { role: 'Main DPS', element: 'Anemo' },
+  'mavuika': { role: 'Main DPS', element: 'Pyro' },
+  'citlali': { role: 'Support', element: 'Cryo' },
+  'kinich': { role: 'Main DPS', element: 'Dendro' },
+  'xilonen': { role: 'Support', element: 'Geo' },
+  'ororon': { role: 'Sub-DPS', element: 'Electro' },
+  'varesa': { role: 'Main DPS', element: 'Electro' },
+  'escoffier': { role: 'Support', element: 'Cryo' },
+  'lan-yan': { role: 'Support', element: 'Anemo' },
+  'sara': { role: 'Support', element: 'Electro' },
+  'diona': { role: 'Sustain', element: 'Cryo' },
+  'sucrose': { role: 'Support', element: 'Anemo' },
+  'beidou': { role: 'Sub-DPS', element: 'Electro' },
+  'rosaria': { role: 'Sub-DPS', element: 'Cryo' },
+  'chongyun': { role: 'Sub-DPS', element: 'Cryo' },
+  'xinyan': { role: 'Sub-DPS', element: 'Pyro' },
+  'noelle': { role: 'Main DPS', element: 'Geo' },
+  'razor': { role: 'Main DPS', element: 'Electro' },
+  'amber': { role: 'Support', element: 'Pyro' },
+  'barbara': { role: 'Sustain', element: 'Hydro' },
+  'lisa': { role: 'Sub-DPS', element: 'Electro' },
+  'kaeya': { role: 'Sub-DPS', element: 'Cryo' },
+};
+
+// ─── MAIN ──────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('🔄 Syncing live meta from Genshin.gg, Game8, and community databases...');
-  const ggTiers = await fetchGenshinGGTiers();
-  console.log(`Fetched ${Object.keys(ggTiers).length} characters from Genshin.gg!`);
+  console.log('🔄 Syncing tier list from 3 sources...\n');
 
-  const updatedMeta = MASTER_META_ROSTER.map(item => {
-    // If parsed tier found, update
-    if (ggTiers[item.name]) {
-      item.scores.genshinGG = ggTiers[item.name];
-    }
-    return item;
-  });
+  const [gg, g8, prydwen] = await Promise.all([
+    fetchGenshinGG(),
+    fetchGame8(),
+    fetchPrydwen(),
+  ]);
 
-  const outputContent = `/**
- * Generated by scripts/sync_meta.js
- * Source parsed: Genshin.gg, Game8, KeqingMains
- * Last synced: ${new Date().toISOString()}
+  const okCount = [gg, g8, prydwen].filter(s => Object.keys(s).length > 0).length;
+
+  if (okCount === 0) {
+    console.error('\n❌ All 3 sources failed. Keeping existing data/meta_tiers.js unchanged.');
+    process.exit(1);
+  }
+
+  if (okCount < 3) {
+    console.warn(`\n⚠️  Only ${okCount}/3 sources returned data. Continuing with partial data.`);
+  }
+
+  console.log('\n🧮 Computing consensus tiers...');
+  const consensus = mergeConsensus(gg, g8, prydwen);
+
+  const META_ROSTER = Object.entries(consensus)
+    .map(([nameKey, data]) => {
+      const known = KNOWN_ROLES[nameKey] || {};
+      const displayName = nameKey
+        .split('-')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      return {
+        id: nameKey,
+        name: displayName,
+        element: known.element || 'Unknown',
+        role: known.role || 'Unknown',
+        tier: data.tier,
+        scores: data.sources,
+      };
+    })
+    .sort((a, b) => (TIER_RANK[b.tier] ?? -1) - (TIER_RANK[a.tier] ?? -1));
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const output = `/**
+ * AUTO-GENERATED by scripts/sync_meta.js — DO NOT EDIT MANUALLY
+ * Sources: genshin.gg, game8.co, prydwen.gg
+ * Last synced: ${now.toISOString()}
+ *
+ * genshin.gg → ${Object.keys(gg).length} chars
+ * game8.co   → ${Object.keys(g8).length} chars
+ * prydwen.gg → ${Object.keys(prydwen).length} chars
  */
 
-export const LAST_SYNCED = "${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}";
+export const LAST_SYNCED = "${dateStr}";
+export const SOURCES = ["genshin.gg", "game8.co", "prydwen.gg"];
 
-export const META_ROSTER = ${JSON.stringify(updatedMeta, null, 2)};
-
-export const PRESET_META_TEAMS = ${JSON.stringify(META_TEAMS, null, 2)};
+export const META_ROSTER = ${JSON.stringify(META_ROSTER, null, 2)};
 `;
 
-  const targetPath = path.resolve('data/meta_tiers.js');
-  fs.writeFileSync(targetPath, outputContent, 'utf-8');
-  console.log(`✅ Successfully generated ${targetPath}`);
+  const outPath = path.resolve('data/meta_tiers.js');
+  fs.writeFileSync(outPath, output, 'utf-8');
+  console.log(`\n✅ Written ${META_ROSTER.length} characters to ${outPath}`);
+  console.log(`   Synced: ${dateStr}`);
 }
 
 main();
+
